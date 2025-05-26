@@ -10,12 +10,14 @@ from src.model import save_model
 
 
 lr = 1e-3
+episodes = 500
+rollout_len = 150
+n_envs = 64
 
 device = get_device()
 print("Using device:", device)
 
 # Create vectorized environment
-n_envs = 128
 env = make_vec_env('LunarLander-v3', n_envs=n_envs)
 
 # Policy network
@@ -35,7 +37,7 @@ policy = Policy(env.observation_space.shape[0], env.action_space.n).to(device)
 optimizer = optim.Adam(policy.parameters(), lr=lr)
 
 # REINFORCE training loop with vectorized env
-def train(env, policy, episodes=1000, gamma=0.99, rollout_len=400, verbose=False):
+def train(env, policy, episodes=episodes, gamma=0.99, rollout_len=rollout_len, verbose=False):
     for episode in range(episodes):
         state = env.reset()
         state = torch.tensor(state, dtype=torch.float32).to(device)
@@ -49,7 +51,10 @@ def train(env, policy, episodes=1000, gamma=0.99, rollout_len=400, verbose=False
             actions = dist.sample()  # shape: [n_envs]
 
             log_prob = dist.log_prob(actions)  # [n_envs]
-            next_state, reward, done, info = env.step(actions.cpu().numpy())
+
+            actions_np = actions.cpu().numpy()
+            actions_list = [int(a) for a in actions_np]
+            next_state, reward, done, info = env.step(actions_list)
 
             log_probs.append(log_prob)
             rewards.append(torch.tensor(reward, dtype=torch.float32).to(device))
@@ -78,6 +83,9 @@ def train(env, policy, episodes=1000, gamma=0.99, rollout_len=400, verbose=False
         avg_total_reward = rewards.sum(1).mean().item()
         if verbose:
             print(f"Episode {episode}, avg_total_reward={avg_total_reward:.2f}")
+
+        if avg_total_reward > 250.0:
+            break
 
 train(env, policy, verbose=True)
 
