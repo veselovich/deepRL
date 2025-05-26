@@ -12,7 +12,7 @@ from src.model import save_model
 lr = 1e-3
 episodes = 500
 rollout_len = 150
-n_envs = 64
+n_envs = 32
 
 device = get_device()
 print("Using device:", device)
